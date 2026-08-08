@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pipeline Panic: Azure Incident Commander</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        azure: { 50: '#f0f9ff', 500: '#0ea5e9', 600: '#0284c7', 900: '#0369a1' },
+                        darkterm: { bg: '#0f172a', surface: '#1e293b', border: '#334155' }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-mono { font-family: 'Fira Code', monospace; }
+        canvas { image-rendering: pixelated; image-rendering: crisp-edges; }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 h-screen flex flex-col overflow-hidden">
+
+    <!-- Top Navigation / Status Bar -->
+    <header class="bg-slate-900 border-b border-slate-800 px-6 py-3 flex justify-between items-center shrink-0">
+        <div class="flex items-center space-x-3">
+            <div class="bg-azure-600 p-2 rounded-lg text-white font-bold text-lg shadow-lg shadow-azure-600/30">
+                <i class="fa-solid fa-cloud"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-lg tracking-wide text-white">Pipeline Panic <span class="text-xs px-2 py-0.5 bg-azure-500/20 text-azure-400 rounded-full font-mono border border-azure-500/30">v0.1 MVP</span></h1>
+                <p class="text-xs text-slate-400">Azure DevOps & SRE Training Simulator</p>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-6 text-sm">
+            <div class="flex items-center space-x-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">
+                <i class="fa-solid fa-shield-halved text-emerald-400"></i>
+                <span class="text-slate-400">Rank:</span>
+                <span id="player-rank" class="font-semibold text-white">Junior Cloud Engineer</span>
+            </div>
+            <div class="flex items-center space-x-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">
+                <i class="fa-solid fa-star text-amber-400"></i>
+                <span class="text-slate-400">XP:</span>
+                <span id="player-xp" class="font-semibold text-white">120 / 300</span>
+            </div>
+            <div class="flex items-center space-x-2 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">
+                <i class="fa-solid fa-fire text-orange-500"></i>
+                <span class="text-slate-400">Active Incidents:</span>
+                <span id="active-incidents-count" class="font-bold text-red-400">1</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Game Area -->
+    <div class="flex-1 flex overflow-hidden">
+
+        <!-- Left Column: Virtual Office / World Canvas -->
+        <div class="w-1/2 flex flex-col border-r border-slate-800 bg-slate-900/50 relative">
+            <div class="p-3 bg-slate-900 border-b border-slate-800 flex justify-between items-center text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                <span><i class="fa-solid fa-gamepad mr-1 text-azure-400"></i> OpsCenter Virtual Floor</span>
+                <span>Use <kbd class="px-1.5 py-0.5 bg-slate-800 border border-slate-700 rounded text-slate-300">W A S D</kbd> or Arrow Keys to Walk</span>
+            </div>
+
+            <!-- Canvas Container -->
+            <div class="flex-1 relative flex items-center justify-center p-4 bg-slate-950/80 overflow-hidden">
+                <canvas id="gameCanvas" width="600" height="400" class="rounded-xl border border-slate-800 shadow-2xl bg-slate-900 cursor-pointer"></canvas>
+                
+                <!-- Floating Interaction Prompt Overlay -->
+                <div id="interaction-prompt" class="absolute bottom-8 bg-azure-600/90 text-white px-4 py-2 rounded-lg shadow-xl text-sm font-medium backdrop-blur-sm hidden animate-bounce border border-azure-400">
+                    Press <kbd class="px-1.5 py-0.5 bg-azure-800 rounded font-bold">E</kbd> to Interact
+                </div>
+            </div>
+
+            <!-- Legend & Quick Guide -->
+            <div class="p-4 bg-slate-900 border-t border-slate-800 grid grid-cols-3 gap-2 text-xs">
+                <div class="flex items-center space-x-2 bg-slate-800/80 p-2 rounded border border-slate-700/50">
+                    <div class="w-3 h-3 rounded-full bg-blue-500 animate-pulse"></div>
+                    <div>
+                        <div class="font-semibold text-white">Server Racks</div>
+                        <div class="text-slate-400 text-[10px]">Fix production outages</div>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2 bg-slate-800/80 p-2 rounded border border-slate-700/50">
+                    <div class="w-3 h-3 rounded-full bg-emerald-500"></div>
+                    <div>
+                        <div class="font-semibold text-white">Training Kiosk</div>
+                        <div class="text-slate-400 text-[10px]">Learn Azure concepts</div>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2 bg-slate-800/80 p-2 rounded border border-slate-700/50">
+                    <div class="w-3 h-3 rounded-full bg-amber-500"></div>
+                    <div>
+                        <div class="font-semibold text-white">Terminal Workstation</div>
+                        <div class="text-slate-400 text-[10px]">CLI troubleshooting</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Interactive Terminal & Incident Panel -->
+        <div class="w-1/2 flex flex-col bg-slate-950">
+            <!-- Panel Tabs -->
+            <div class="flex bg-slate-900 border-b border-slate-800">
+                <button onclick="switchTab('terminal')" id="tab-terminal" class="px-6 py-3 text-sm font-semibold border-b-2 border-azure-500 text-azure-400 bg-slate-950/50 flex items-center space-x-2">
+                    <i class="fa-solid fa-terminal"></i>
+                    <span>Azure CLI Terminal</span>
+                </button>
+                <button onclick="switchTab('incident')" id="tab-incident" class="px-6 py-3 text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center space-x-2">
+                    <i class="fa-solid fa-triangle-exclamation text-amber-400"></i>
+                    <span>Active Incident Brief</span>
+                </button>
+                <button onclick="switchTab('resume')" id="tab-resume" class="px-6 py-3 text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center space-x-2">
+                    <i class="fa-solid fa-file-lines text-emerald-400"></i>
+                    <span>Resume Builder (<span id="bullet-count">0</span>)</span>
+                </button>
+            </div>
+
+            <!-- Tab Content: Terminal -->
+            <div id="content-terminal" class="flex-1 flex flex-col p-4 font-mono text-sm overflow-hidden">
+                <div class="bg-slate-900 rounded-t-lg px-4 py-2 border-t border-x border-slate-800 flex justify-between items-center text-xs text-slate-400">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-3 h-3 rounded-full bg-red-500/80"></div>
+                        <div class="w-3 h-3 rounded-full bg-amber-500/80"></div>
+                        <div class="w-3 h-3 rounded-full bg-emerald-500/80"></div>
+                        <span class="ml-2 font-mono text-slate-300">bash - az-cli-sandbox:~</span>
+                    </div>
+                    <button onclick="clearTerminal()" class="hover:text-white transition"><i class="fa-solid fa-trash-can mr-1"></i> Clear</button>
+                </div>
+                
+                <!-- Terminal Output Window -->
+                <div id="terminal-output" class="flex-1 bg-slate-900/90 border-x border-b border-slate-800 p-4 overflow-y-auto space-y-2 text-slate-200 text-xs">
+                    <div><span class="text-emerald-400">Welcome to Azure Cloud Shell (v2.60.0)</span></div>
+                    <div>Type <code class="text-azure-400 font-bold">help</code> to see available commands or walk to a Server Rack to inspect active incidents.</div>
+                    <div class="text-slate-500">----------------------------------------------------------------</div>
+                    <div class="text-amber-400"><i class="fa-solid fa-bell mr-1"></i> ALERT: AKS Cluster 'prod-cluster-eus' is throwing 502 Bad Gateway errors.</div>
+                </div>
+
+                <!-- Terminal Input Form -->
+                <form id="terminal-form" onsubmit="handleCommand(event)" class="mt-2 flex items-center bg-slate-900 border border-slate-800 rounded-lg px-3 py-2">
+                    <span class="text-azure-400 font-bold mr-2">azure@cloud:~$</span>
+                    <input id="terminal-input" type="text" autocomplete="off" spellcheck="false" class="flex-1 bg-transparent border-none outline-none text-slate-100 font-mono text-xs" placeholder="Type a command (e.g. 'kubectl get pods', 'az aks browse')...">
+                    <button type="submit" class="text-azure-400 hover:text-azure-300 px-2"><i class="fa-solid fa-arrow-right"></i></button>
+                </form>
+            </div>
+
+            <!-- Tab Content: Incident Brief -->
+            <div id="content-incident" class="flex-1 p-6 overflow-y-auto hidden space-y-6">
+                <div class="bg-red-950/30 border border-red-500/30 rounded-xl p-5">
+                    <div class="flex items-center space-x-3 mb-3">
+                        <div class="bg-red-500/20 text-red-400 p-2.5 rounded-lg border border-red-500/30">
+                            <i class="fa-solid fa-triangle-exclamation text-xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-red-400 text-base">INC-8832: AKS Ingress Gateway 502 Outage</h3>
+                            <p class="text-xs text-slate-400">Environment: Azure Kubernetes Service (East US) • Severity: Sev-1</p>
+                        </div>
+                    </div>
+                    <p class="text-sm text-slate-300 mb-4">
+                        Users are reporting intermittent 502 Bad Gateway errors when accessing the frontend application. The NGINX Ingress Controller pods are crash-looping or failing health probes.
+                    </p>
+                    <div class="bg-slate-900 p-3 rounded-lg border border-slate-800 font-mono text-xs text-red-300 mb-4 overflow-x-auto">
+                        [ERROR] 2026/03/30 14:22:15 [error] 14#14: *42 upstream prematurely closed connection while reading response header from upstream, client: 10.244.0.1
+                    </div>
+                    <div class="space-y-3">
+                        <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider">Troubleshooting Checklist:</h4>
+                        <label class="flex items-center space-x-3 text-sm text-slate-300 cursor-pointer">
+                            <input type="checkbox" id="check-1" onchange="checkProgress()" class="rounded bg-slate-800 border-slate-700 text-azure-600 focus:ring-0">
+                            <span>Check pod status (<code class="text-azure-400 font-mono">kubectl get pods -n ingress-basic</code>)</span>
+                        </label>
+                        <label class="flex items-center space-x-3 text-sm text-slate-300 cursor-pointer">
+                            <input type="checkbox" id="check-2" onchange="checkProgress()" class="rounded bg-slate-800 border-slate-700 text-azure-600 focus:ring-0">
+                            <span>Inspect ingress logs (<code class="text-azure-400 font-mono">kubectl logs deploy/nginx-ingress</code>)</span>
+                        </label>
+                        <label class="flex items-center space-x-3 text-sm text-slate-300 cursor-pointer">
+                            <input type="checkbox" id="check-3" onchange="checkProgress()" class="rounded bg-slate-800 border-slate-700 text-azure-600 focus:ring-0">
+                            <span>Fix secret / configmap or scale up (<code class="text-azure-400 font-mono">kubectl rollout restart...</code>)</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Content: Resume Builder -->
+            <div id="content-resume" class="flex-1 p-6 overflow-y-auto hidden space-y-4">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h3 class="font-bold text-white text-base">Your Generated Azure DevOps Resume Bullets</h3>
+                        <p class="text-xs text-slate-400">Earned by successfully resolving production incidents in the game.</p>
+                    </div>
+                    <button onclick="copyResumeBullets()" class="bg-azure-600 hover:bg-azure-500 text-white text-xs px-3 py-2 rounded-lg font-medium transition shadow-lg shadow-azure-600/20">
+                        <i class="fa-solid fa-copy mr-1"></i> Copy All
+                    </button>
+                </div>
+                <div id="resume-bullets-list" class="space-y-3">
+                    <div class="bg-slate-900 p-4 rounded-xl border border-slate-800 text-sm text-slate-300 italic">
+                        No resume bullets earned yet. Resolve incidents in the terminal to generate high-impact bullet points!
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- JavaScript Game & Terminal Engine -->
+    <script>
+        // Game State
+        let playerXP = 120;
+        let playerLevel = 1;
+        let rankName = "Junior Cloud Engineer";
+        let resumeBullets = [];
+        let currentIncidentResolved = false;
+
+        // Canvas & 2D Virtual Floor Setup
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Player position & movement
+        let player = { x: 100, y: 150, size: 20, speed: 3 };
+        let keys = {};
+
+        // Interactive Objects on the floor
+        const objects = [
+            { id: 'server1', x: 450, y: 80, width: 60, height: 70, name: 'Prod Server Rack', color: '#ef4444', icon: 'fa-server', action: 'incident' },
+            { id: 'kiosk1', x: 100, y: 80, width: 50, height: 60, name: 'Training Kiosk', color: '#10b981', icon: 'fa-graduation-cap', action: 'train' },
+            { id: 'terminal1', x: 300, y: 280, width: 70, height: 50, name: 'CLI Workstation', color: '#f59e0b', icon: 'fa-terminal', action: 'terminal' }
+        ];
+
+        let nearbyObject = null;
+
+        // Input Listeners
+        window.addEventListener('keydown', (e) => {
+            keys[e.key.toLowerCase()] = true;
+            if (e.key.toLowerCase() === 'e' && nearbyObject) {
+                triggerInteraction(nearbyObject);
+            }
+        });
+        window.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
+
+        function updatePlayer() {
+            if (keys['w'] || keys['arrowup']) player.y -= player.speed;
+            if (keys['s'] || keys['arrowdown']) player.y += player.speed;
+            if (keys['a'] || keys['arrowleft']) player.x -= player.speed;
+            if (keys['d'] || keys['arrowright']) player.x += player.speed;
+
+            // Boundaries
+            player.x = Math.max(20, Math.min(canvas.width - 20, player.x));
+            player.y = Math.max(20, Math.min(canvas.height - 20, player.y));
+
+            // Check proximity to objects
+            nearbyObject = null;
+            for (let obj of objects) {
+                let dist = Math.hypot((player.x + 10) - (obj.x + obj.width/2), (player.y + 10) - (obj.y + obj.height/2));
+                if (dist < 50) {
+                    nearbyObject = obj;
+                    break;
+                }
+            }
+
+            const prompt = document.getElementById('interaction-prompt');
+            if (nearbyObject) {
+                prompt.classList.remove('hidden');
+                prompt.innerHTML = `Press <kbd class="px-1.5 py-0.5 bg-azure-800 rounded font-bold">E</kbd> to access ${nearbyObject.name}`;
+            } else {
+                prompt.classList.add('hidden');
+            }
+        }
+
+        function drawGame() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Grid Floor Pattern
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < canvas.width; i += 40) {
+                ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
+            }
+            for (let j = 0; j < canvas.height; j += 40) {
+                ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(canvas.width, j); ctx.stroke();
+            }
+
+            // Draw Objects
+            for (let obj of objects) {
+                ctx.fillStyle = obj.color;
+                ctx.roundRect ? ctx.beginPath() || ctx.roundRect(obj.x, obj.y, obj.width, obj.height, 8) || ctx.fill() : ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
+                
+                // Object label
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '10px Inter';
+                ctx.textAlign = 'center';
+                ctx.fillText(obj.name, obj.x + obj.width/2, obj.y + obj.height + 15);
+            }
+
+            // Draw Player Avatar
+            ctx.fillStyle = '#0ea5e9';
+            ctx.beginPath();
+            ctx.arc(player.x, player.y, 14, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // Player Icon / Face
+            ctx.fillStyle = '#ffffff';
+            ctx.font = '10px FontAwesome';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            // simple dot for player center
+            ctx.beginPath(); ctx.arc(player.x, player.y, 4, 0, Math.PI * 2); ctx.fill();
+        }
+
+        function gameLoop() {
+            updatePlayer();
+            drawGame();
+            requestAnimationFrame(gameLoop);
+        }
+        requestAnimationFrame(gameLoop);
+
+        // Interaction Handler
+        function triggerInteraction(obj) {
+            if (obj.action === 'incident') {
+                switchTab('incident');
+                appendTerminalOutput(`<span class="text-amber-450">[*] Connected to Prod Server Rack. Reviewing active incident INC-8832...</span>`, true);
+            } else if (obj.action === 'train') {
+                appendTerminalOutput(`<span class="text-emerald-400">[*] Opened Azure DevOps Training Kiosk. Type 'learn' in terminal for tutorials.</span>`, true);
+                switchTab('terminal');
+            } else if (obj.action === 'terminal') {
+                switchTab('terminal');
+                document.getElementById('terminal-input').focus();
+            }
+        }
+
+        // Tab Switching
+        function switchTab(tabName) {
+            ['terminal', 'incident', 'resume'].forEach(t => {
+                document.getElementById(`content-${t}`).classList.add('hidden');
+                document.getElementById(`tab-${t}`).classList.remove('border-azure-500', 'text-azure-400', 'bg-slate-950/50');
+                document.getElementById(`tab-${t}`).classList.add('border-transparent', 'text-slate-400');
+            });
+            document.getElementById(`content-${tabName}`).classList.remove('hidden');
+            document.getElementById(`tab-${tabName}`).classList.add('border-azure-500', 'text-azure-400', 'bg-slate-950/50');
+            document.getElementById(`tab-${tabName}`).classList.remove('border-transparent', 'text-slate-400');
+        }
+
+        // Terminal Logic
+        function handleCommand(e) {
+            e.preventDefault();
+            const inputField = document.getElementById('terminal-input');
+            const cmd = inputField.value.trim();
+            if (!cmd) return;
+
+            appendTerminalOutput(`<span class="text-azure-400">azure@cloud:~$</span> ${escapeHtml(cmd)}`);
+            inputField.value = '';
+
+            // Command Processing
+            const lowerCmd = cmd.toLowerCase();
+            if (lowerCmd === 'help') {
+                appendTerminalOutput(`Available commands:<br>
+                  - <code class="text-azure-300">kubectl get pods -n ingress-basic</code> : List AKS pods<br>
+                  - <code class="text-azure-300">kubectl logs deploy/nginx-ingress</code> : Check ingress error logs<br>
+                  - <code class="text-azure-300">kubectl rollout restart deploy/nginx-ingress</code> : Restart ingress controller (FixesINC-8832)<br>
+                  - <code class="text-azure-300">az aks show --name prod-cluster-eus</code> : Check AKS cluster health<br>
+                  - <code class="text-azure-300">learn</code> : Start interactive DevOps training<br>
+                  - <code class="text-azure-300">clear</code> : Clear terminal screen`);
+            } else if (lowerCmd === 'clear') {
+                clearTerminal();
+            } else if (lowerCmd.includes('kubectl get pods')) {
+                appendTerminalOutput(`NAME                                    READY   STATUS             RESTARTS   AGE<br>
+nginx-ingress-controller-7598b-8xw22    0/1     CrashLoopBackOff   12         45m<br>
+frontend-app-deployment-6489-abc        1/1     Running            0          2h`);
+                document.getElementById('check-1').checked = true;
+                checkProgress();
+            } else if (lowerCmd.includes('kubectl logs')) {
+                appendTerminalOutput(`[ERROR] 2026/03/30 14:22:15 [error] 14#14: *42 upstream prematurely closed connection while reading response header from upstream, client: 10.244.0.1<br>
+[WARN] Secret 'tls-ingress-secret' expired or invalid mounting path.`);
+                document.getElementById('check-2').checked = true;
+                checkProgress();
+            } else if (lowerCmd.includes('kubectl rollout restart')) {
+                appendTerminalOutput(`<span class="text-emerald-400">deployment.apps/nginx-ingress restarted successfully.</span><br>
+Waiting for rollout to finish: 1 of 1 updated replicas are available...<br>
+<span class="text-emerald-400 font-bold">INCIDENT RESOLVED: 502 Bad Gateway errors mitigated! +100 XP earned.</span>`);
+                document.getElementById('check-3').checked = true;
+                completeIncident();
+            } else if (lowerCmd === 'learn') {
+                appendTerminalOutput(`<span class="text-azure-300 font-bold">Azure DevOps Quick Lesson:</span><br>
+In Azure Kubernetes Service (AKS), Ingress controllers route external HTTP/HTTPS traffic to internal cluster services. If SSL certificates expire or upstream timeout thresholds are misconfigured, NGINX throws 502 errors.`);
+            } else {
+                appendTerminalOutput(`bash: ${escapeHtml(cmd)}: command not found. Type 'help' for available commands.`);
+            }
+        }
+
+        function appendTerminalOutput(html, preserve = false) {
+            const output = document.getElementById('terminal-output');
+            const div = document.createElement('div');
+            div.innerHTML = html;
+            output.appendChild(div);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function clearTerminal() {
+            document.getElementById('terminal-output').innerHTML = `<div><span class="text-slate-500">Terminal cleared. Type 'help' for available commands.</span></div>`;
+        }
+
+        function checkProgress() {
+            // Check if all checkboxes are checked
+            let c1 = document.getElementById('check-1').checked;
+            let c2 = document.getElementById('check-2').checked;
+            let c3 = document.getElementById('check-3').checked;
+            if (c1 && c2 && c3 && !currentIncidentResolved) {
+                completeIncident();
+            }
+        }
+
+        function completeIncident() {
+            if (currentIncidentResolved) return;
+            currentIncidentResolved = true;
+            playerXP += 180;
+            document.getElementById('player-xp').innerText = `${playerXP} / 500`;
+            document.getElementById('active-incidents-count').innerText = `0`;
+            document.getElementById('active-incidents-count').className = `font-bold text-emerald-400`;
+
+            // Add Resume Bullet
+            const bullet = "Engineered and resolved Sev-1 production incidents in Azure Kubernetes Service (AKS) by diagnosing NGINX Ingress crash loops, inspecting upstream logs, and executing rolling deployment restarts.";
+            resumeBullets.push(bullet);
+            document.getElementById('bullet-count').innerText = resumeBullets.length;
+
+            const list = document.getElementById('resume-bullets-list');
+            if (resumeBullets.length === 1) list.innerHTML = '';
+            
+            const div = document.createElement('div');
+            div.className = "bg-slate-900 p-4 rounded-xl border border-emerald-500/30 text-sm text-slate-200 flex justify-between items-start space-x-3";
+            div.innerHTML = `<span><i class="fa-solid fa-check-circle text-emerald-400 mr-2"></i> ${bullet}</span>`;
+            list.appendChild(div);
+
+            appendTerminalOutput(`<span class="text-emerald-400 font-bold">>>> Congratulations! Incident INC-8832 successfully closed. Resume bullet generated!</span>`);
+        }
+
+        function copyResumeBullets() {
+            const text = resumeBullets.join('\n• ');
+            navigator.clipboard.writeText('• ' + text);
+            alert('Resume bullets copied to clipboard!');
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+    </script>
+</body>
+</html>
