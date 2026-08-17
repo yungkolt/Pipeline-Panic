@@ -1,8 +1,20 @@
 # Pipeline Panic — AZ-400 Ops RPG
 
+**Play:** [https://yungkolt.github.io/Pipeline-Panic/](https://yungkolt.github.io/Pipeline-Panic/)
+
 A browser RPG for studying **Exam AZ-400: Designing and Implementing Microsoft DevOps Solutions**. You walk a top-down Ops HQ (Pokémon-style movement, not Pokémon IP), earn CLI “moves” from mentors and kiosks, then fight **stateful incidents** in a simulated Azure/GitHub terminal. After the campaign, **Endless On-Call** combinatorially generates new scenarios forever — no API keys, no real Azure bill.
 
-Play locally:
+## GitHub Pages (one-time)
+
+The deploy workflow is already in [`.github/workflows/pages.yml`](.github/workflows/pages.yml) and runs on every push to `main`. GitHub still needs Pages turned on once for this repo (an API token cannot flip that switch):
+
+1. Open **[Settings → Pages](https://github.com/yungkolt/Pipeline-Panic/settings/pages)**.
+2. Under **Build and deployment → Source**, choose **GitHub Actions**.
+3. If the site 404s, open **[Actions](https://github.com/yungkolt/Pipeline-Panic/actions)** → **Build and deploy Pages** → **Run workflow** on `main`.
+
+After the workflow is green, the game is at `https://yungkolt.github.io/Pipeline-Panic/`.
+
+## Local
 
 ```bash
 npm install
@@ -10,7 +22,7 @@ npm test
 npm run dev
 ```
 
-Build for GitHub Pages: `npm run build` (static `dist/`, `base: './'`). A workflow on `main` runs tests, builds, and deploys Pages.
+Production build: `npm run build` (static `dist/`, `base: './'` so it works as a project Pages site).
 
 ## Why this exists
 

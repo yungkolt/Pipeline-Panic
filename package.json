@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "description": "AZ-400 Ops RPG — a Pokemon-style Azure DevOps study game",
+  "homepage": "https://yungkolt.github.io/Pipeline-Panic/",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
