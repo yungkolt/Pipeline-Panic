@@ -4,15 +4,20 @@
 
 A browser RPG for studying **Exam AZ-400: Designing and Implementing Microsoft DevOps Solutions**. You walk a top-down Ops HQ (Pokémon-style movement, not Pokémon IP), earn CLI “moves” from mentors and kiosks, then fight **stateful incidents** in a simulated Azure/GitHub terminal. After the campaign, **Endless On-Call** combinatorially generates new scenarios forever — no API keys, no real Azure bill.
 
-## GitHub Pages (one-time)
+## GitHub Pages
 
-The deploy workflow is already in [`.github/workflows/pages.yml`](.github/workflows/pages.yml) and runs on every push to `main`. GitHub still needs Pages turned on once for this repo (an API token cannot flip that switch):
+Live: [https://yungkolt.github.io/Pipeline-Panic/](https://yungkolt.github.io/Pipeline-Panic/)
 
-1. Open **[Settings → Pages](https://github.com/yungkolt/Pipeline-Panic/settings/pages)**.
-2. Under **Build and deployment → Source**, choose **GitHub Actions**.
-3. If the site 404s, open **[Actions](https://github.com/yungkolt/Pipeline-Panic/actions)** → **Build and deploy Pages** → **Run workflow** on `main`.
+Pages serves the **repository root**, so the built site (`index.html` + `assets/`) is committed alongside the source in [`app/`](app). Rebuild and commit whenever you change anything under `app/`:
 
-After the workflow is green, the game is at `https://yungkolt.github.io/Pipeline-Panic/`.
+```bash
+npm run build
+git add index.html assets && git commit -m "Rebuild site"
+```
+
+CI fails if that output is stale, which is what previously produced a blank page.
+
+Optional, cleaner setup: in **[Settings → Pages](https://github.com/yungkolt/Pipeline-Panic/settings/pages)** set **Source** to **GitHub Actions**. The workflow already deploys that way, and the committed root build can then be dropped.
 
 ## Local
 
@@ -22,7 +27,7 @@ npm test
 npm run dev
 ```
 
-Production build: `npm run build` (static `dist/`, `base: './'` so it works as a project Pages site).
+Source lives in [`app/`](app) (`app/index.html` + `app/src`). `npm run build` type-checks, then writes the static site to the repo root with `base: './'`.
 
 ## Why this exists
 
@@ -69,12 +74,16 @@ Restart first and production HP drops — the secret is still expired.
 ## Architecture
 
 ```
-src/
-  game/        canvas loop, map collision, interactions
-  ui/          HUD, dialogue, quizzes, terminal
-  sim/         world-state CLI, win conditions, seeded generator
-  progress/    XP/ranks, quests, localStorage
-  content/     maps, NPCs, lessons, incident templates
+app/
+  index.html   page shell
+  src/
+    game/      canvas loop, sprites, map collision, interactions
+    ui/        HUD, dialogue, quizzes, terminal
+    sim/       world-state CLI, win conditions, seeded generator
+    progress/  XP/ranks, quests, localStorage
+    content/   maps, NPCs, lessons, incident templates
+index.html     built site (committed for Pages)
+assets/        built JS/CSS (committed for Pages)
 ```
 
 Incidents are JSON-ish **templates** with slot fills (`service`, `region`, …), a **root cause** that mutates state, and optional **red herrings**. Commands read/write that state so `kubectl get pods` and `az aks show` stay consistent. The same seed always rebuilds the same incident.

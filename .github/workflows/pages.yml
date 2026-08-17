@@ -3,6 +3,7 @@ name: Build and deploy Pages
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -26,17 +27,39 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
-      - uses: actions/configure-pages@v5
+
+      # Pages currently serves the repo root, so the built index.html/assets are
+      # committed. Fail loudly when they drift from source instead of shipping a
+      # blank page.
+      - name: Verify committed build output is current
+        run: |
+          if ! git diff --quiet -- index.html assets; then
+            echo "::error::Committed build output is stale. Run 'npm run build' and commit index.html + assets/."
+            git --no-pager diff --stat -- index.html assets
+            exit 1
+          fi
+
+      - name: Stage site for Pages artifact
+        run: |
+          rm -rf _site
+          mkdir -p _site
+          cp index.html _site/
+          cp -r assets _site/
+          cp .nojekyll _site/ 2>/dev/null || true
+
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: _site
 
   deploy:
+    if: github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
+        continue-on-error: true
         uses: actions/deploy-pages@v4
+      - if: steps.deployment.outcome == 'failure'
+        run: |
+          echo "::warning::Actions deploy skipped. Pages source is still 'Deploy from a branch'."
+          echo "The committed root build is served by the legacy Pages build instead."

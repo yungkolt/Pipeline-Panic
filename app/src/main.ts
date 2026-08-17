@@ -17,6 +17,7 @@ function resize(): void {
 resize();
 window.addEventListener("resize", resize);
 
+// Start rendering before wiring the UI so a DOM/HUD failure cannot leave a black canvas.
 engine.bindInput();
-bindUI(store, engine);
 engine.start();
+bindUI(store, engine);

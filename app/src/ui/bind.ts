@@ -19,6 +19,16 @@ import {
 export function bindUI(store: Store, engine: GameEngine): void {
   const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
+  /** HUD writes tolerate a missing node so a markup change cannot break the game loop. */
+  const setText = (id: string, value: string): void => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+  };
+  const setHtml = (id: string, value: string): void => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = value;
+  };
+
   const title = $<HTMLElement>("title-screen");
   const continueBtn = $<HTMLButtonElement>("btn-continue");
   const newBtn = $<HTMLButtonElement>("btn-new");
@@ -208,16 +218,17 @@ export function bindUI(store: Store, engine: GameEngine): void {
     const s = store.get();
     const rank = rankForXp(s.player.xp);
     const prog = xpProgress(s.player.xp);
-    $("player-rank").textContent = rank.name;
-    $("player-xp").textContent = `${prog.current} / ${prog.next}`;
-    $("player-runbooks").textContent = String(s.player.runbooks);
+    setText("player-rank", rank.name);
+    setText("player-xp", `${prog.current} / ${prog.next}`);
+    setText("player-runbooks", String(s.player.runbooks));
     const live = Boolean(
       s.currentIncident && !s.currentIncident.resolved && !s.currentIncident.failed,
     );
-    $("active-incidents-count").textContent = live ? "1" : "0";
-    $("active-incidents-count").style.color = live ? "#f87171" : "#34d399";
-    $("bullet-count").textContent = String(s.player.resumeBullets.length);
-    $("next-objective").textContent = nextObjective(s);
+    setText("active-incidents-count", live ? "1" : "0");
+    const counter = document.getElementById("active-incidents-count");
+    if (counter) counter.style.color = live ? "#f87171" : "#34d399";
+    setText("bullet-count", String(s.player.resumeBullets.length));
+    setText("next-objective", nextObjective(s));
 
     renderIncident();
     renderQuests();
@@ -226,16 +237,20 @@ export function bindUI(store: Store, engine: GameEngine): void {
   }
 
   function renderIncident(): void {
-    const root = $("incident-root");
     const inc = store.get().currentIncident;
     if (!inc) {
-      root.innerHTML = `<p class="muted">No active incident. Walk to a red server rack after the wing's training quest.</p>`;
+      setHtml(
+        "incident-root",
+        `<p class="muted">No active incident. Walk to a red server rack after the wing's training quest.</p>`,
+      );
       return;
     }
     const prod = Math.round((inc.productionHp / inc.productionMaxHp) * 100);
     const ihp = Math.round((inc.incidentHp / inc.incidentMaxHp) * 100);
     const done = inc.resolved ? "ok" : "";
-    root.innerHTML = `
+    setHtml(
+      "incident-root",
+      `
       <div class="incident-card ${done}">
         <h3>${escapeHtml(inc.title)}</h3>
         <p class="muted">Sev-${inc.severity} · ${escapeHtml(inc.domain)} · ${escapeHtml(inc.environment)} · seed ${inc.seed}</p>
@@ -250,21 +265,22 @@ export function bindUI(store: Store, engine: GameEngine): void {
         <h4>Revealed facts</h4>
         <p class="muted">${inc.revealed.length ? inc.revealed.map(escapeHtml).join(", ") : "None yet — diagnose in the terminal."}</p>
         <p class="muted">${inc.resolved ? "Resolved." : inc.failed ? "Failed. Re-pull the rack." : "Type status or runbook for a hint (costs 1 runbook)."}</p>
-      </div>`;
+      </div>`,
+    );
   }
 
   function renderQuests(): void {
-    const root = $("quests-root");
     const s = store.get();
     const list = visibleQuests(s);
     const head = `<p class="muted"><b>Next:</b> ${escapeHtml(nextObjective(s))}</p>`;
     if (!list.length) {
-      root.innerHTML = head;
+      setHtml("quests-root", head);
       return;
     }
-    root.innerHTML =
+    setHtml(
+      "quests-root",
       head +
-      list
+        list
         .map((q) => {
           const st = s.quests[q.id];
           const cls = st.status === "completed" ? "done" : st.status === "active" ? "active" : "";
@@ -280,36 +296,40 @@ export function bindUI(store: Store, engine: GameEngine): void {
           <ul class="steps">${steps}</ul>
         </article>`;
         })
-        .join("");
+        .join(""),
+    );
   }
 
   function renderSkills(): void {
-    const root = $("skills-root");
     const unlocked = new Set(store.get().player.skills);
     const badges = store
       .get()
       .player.badges.map((b) => BADGE_NAMES[b] ?? b)
       .join(" · ");
-    root.innerHTML =
+    setHtml(
+      "skills-root",
       `<p class="muted">Badges: ${escapeHtml(badges || "none")}</p>` +
-      SKILLS.map((sk) => {
+        SKILLS.map((sk) => {
         const on = unlocked.has(sk.id);
         return `<article class="skill" style="opacity:${on ? 1 : 0.45}">
           <header><b>${escapeHtml(sk.name)}</b><span class="badge">${on ? "unlocked" : "locked"} · ${sk.domain}</span></header>
           <p class="muted">${escapeHtml(sk.description)}</p>
           <p class="muted">${sk.commands.map((c) => `<span class="cmd">${escapeHtml(c)}</span>`).join(" · ")}</p>
         </article>`;
-      }).join("");
+        }).join(""),
+    );
   }
 
   function renderResume(): void {
-    const root = $("resume-root");
     const bullets = store.get().player.resumeBullets;
     if (!bullets.length) {
-      root.innerHTML = `<p class="muted">No bullets yet. Resolve incidents.</p>`;
+      setHtml("resume-root", `<p class="muted">No bullets yet. Resolve incidents.</p>`);
       return;
     }
-    root.innerHTML = bullets.map((b) => `<div class="bullet">✓ ${escapeHtml(b)}</div>`).join("");
+    setHtml(
+      "resume-root",
+      bullets.map((b) => `<div class="bullet">✓ ${escapeHtml(b)}</div>`).join(""),
+    );
   }
 
   function appendTerm(html: string): void {
