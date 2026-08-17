@@ -9,6 +9,7 @@ import {
   activateQuest,
   campaignQuestStepForZone,
   completeStep,
+  nextObjective,
 } from "../progress/quests";
 import { questById } from "../content/quests";
 import { weakDomain } from "../progress/save";
@@ -61,33 +62,31 @@ export function applyDialogueFinish(store: Store, session: DialogueSession): str
 function openKiosk(store: Store, zone: Zone): Interaction {
   const save = store.get();
   const lessons = lessonsForZone(zone);
-  const lesson =
-    lessons.find((l) => {
-      const prog = save.quests[l.questId];
-      if (!prog) return false;
-      if (prog.status === "locked" || prog.status === "completed") return false;
-      const def = questById(l.questId);
-      const trainStep = def?.steps.find(
-        (s) => s.id.startsWith("train") || s.id === "visit-kiosk",
-      );
-      if (!trainStep) return true;
-      return !prog.steps[trainStep.id];
-    }) ?? lessons[0];
+  const lesson = lessons.find((l) => {
+    const prog = save.quests[l.questId];
+    if (!prog) return false;
+    if (prog.status === "locked" || prog.status === "completed") return false;
+    const def = questById(l.questId);
+    const trainStep = def?.steps.find(
+      (s) => s.id.startsWith("train") || s.id === "visit-kiosk",
+    );
+    if (!trainStep) return true;
+    return !prog.steps[trainStep.id];
+  });
 
   if (!lesson) {
-    return { type: "message", text: "This kiosk is dark. Try another wing." };
+    return {
+      type: "message",
+      text: `This kiosk is already cleared. Next: ${nextObjective(save)}`,
+    };
   }
 
   const prog = save.quests[lesson.questId];
   if (prog?.status === "locked") {
     return {
       type: "message",
-      text: "This lesson is locked. Talk to the wing mentor (or Riley) first.",
+      text: `This lesson is locked. Next: ${nextObjective(save)}`,
     };
-  }
-
-  if (zone === "hub") {
-    completeStep(store, "onboarding", "visit-kiosk");
   }
 
   return { type: "lesson", lesson };
@@ -95,25 +94,29 @@ function openKiosk(store: Store, zone: Zone): Interaction {
 
 export function passLesson(store: Store, lesson: Lesson): string {
   const save = store.get();
+  const def = questById(lesson.questId);
+  const trainStep = def?.steps.find(
+    (s) => s.id.startsWith("train") || s.id === "visit-kiosk",
+  );
+  const already =
+    Boolean(trainStep && save.quests[lesson.questId]?.steps[trainStep.id]) ||
+    save.quests[lesson.questId]?.status === "completed";
+  if (already) {
+    return `Already trained here. Next: ${nextObjective(save)}`;
+  }
   if (!save.player.skills.includes(lesson.skill)) {
     save.player.skills.push(lesson.skill);
   }
-  const def = questById(lesson.questId);
   if (def?.unlockSkills) {
     for (const s of def.unlockSkills) {
       if (!save.player.skills.includes(s)) save.player.skills.push(s);
     }
   }
   save.player.xp += 25;
-  if (def) {
-    const trainStep = def.steps.find(
-      (s) => s.id.startsWith("train") || s.id === "visit-kiosk",
-    );
-    if (trainStep) completeStep(store, lesson.questId, trainStep.id);
-  }
+  if (trainStep) completeStep(store, lesson.questId, trainStep.id);
   store.emit();
   store.persist();
-  return `Unlocked ${lesson.skill}. +25 XP`;
+  return `Unlocked ${lesson.skill}. +25 XP. Next: ${nextObjective(store.get())}`;
 }
 
 function openRack(store: Store, zone: Zone): Interaction {

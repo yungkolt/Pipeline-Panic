@@ -1,5 +1,5 @@
 import type { GameSave } from "../types";
-import { newGameSave, defaultSpawn } from "./save";
+import { newGameSave, defaultSpawn, migrateSave } from "./save";
 
 const KEY = "pipeline-panic-save-v1";
 
@@ -62,7 +62,7 @@ export class Store {
       if (!raw) return null;
       const parsed = JSON.parse(raw) as GameSave;
       if (parsed.version !== 1) return null;
-      return parsed;
+      return migrateSave(parsed);
     } catch {
       return null;
     }

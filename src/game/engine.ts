@@ -4,11 +4,14 @@ import {
   createCampusMap,
   isWall,
   TILE,
+  TILE_DOOR,
+  TILE_WALL,
   ZONE_COLORS,
   ZONE_LABELS,
   type CampusMap,
 } from "../content/map";
 import { handleEntity, type Interaction } from "./interact";
+import { drawDoorTile, drawEntity, drawPlayer, type Facing } from "./sprites";
 
 export class GameEngine {
   canvas: HTMLCanvasElement;
@@ -18,6 +21,7 @@ export class GameEngine {
   keys = new Set<string>();
   nearby: MapEntity | null = null;
   running = false;
+  facing: Facing = "down";
   private raf = 0;
   onInteract: (result: Interaction, entity: MapEntity) => void = () => {};
   blocked = true;
@@ -29,6 +33,11 @@ export class GameEngine {
     this.ctx = ctx;
     this.map = createCampusMap();
     this.store = store;
+    const p = store.get().player;
+    if (isWall(this.map.tiles, p.x, p.y)) {
+      p.x = this.map.spawn.x;
+      p.y = this.map.spawn.y;
+    }
   }
 
   start(): void {
@@ -95,6 +104,8 @@ export class GameEngine {
     if (this.keys.has("d") || this.keys.has("arrowright")) dx += speed;
 
     if (dx || dy) {
+      if (Math.abs(dx) > Math.abs(dy)) this.facing = dx < 0 ? "left" : "right";
+      else this.facing = dy < 0 ? "up" : "down";
       const nx = p.x + dx;
       const ny = p.y + dy;
       if (!this.collides(nx, p.y)) p.x = nx;
@@ -126,7 +137,7 @@ export class GameEngine {
   private updateNearby(): void {
     const p = this.store.get().player;
     this.nearby = null;
-    let best = 64;
+    let best = 72;
     for (const ent of this.map.entities) {
       const cx = ent.x + ent.w / 2;
       const cy = ent.y + ent.h / 2;
@@ -143,6 +154,7 @@ export class GameEngine {
     const p = this.store.get().player;
     const camX = clamp(p.x - canvas.width / 2, 0, map.cols * TILE - canvas.width);
     const camY = clamp(p.y - canvas.height / 2, 0, map.rows * TILE - canvas.height);
+    const t = performance.now();
 
     ctx.fillStyle = "#020617";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -155,53 +167,34 @@ export class GameEngine {
     for (let ty = r0; ty < r1; ty++) {
       for (let tx = t0; tx < t1; tx++) {
         const v = map.tiles[ty][tx];
-        ctx.fillStyle = ZONE_COLORS[v] ?? "#020617";
-        ctx.fillRect(tx * TILE - camX, ty * TILE - camY, TILE, TILE);
-        if (v !== 0 && v !== 2) {
-          ctx.strokeStyle = "rgba(15,23,42,0.45)";
-          ctx.strokeRect(tx * TILE - camX, ty * TILE - camY, TILE, TILE);
+        const x = tx * TILE - camX;
+        const y = ty * TILE - camY;
+        if (v === TILE_DOOR) {
+          drawDoorTile(ctx, x, y, TILE, t);
+        } else {
+          ctx.fillStyle = ZONE_COLORS[v] ?? "#020617";
+          ctx.fillRect(x, y, TILE, TILE);
+          if (v !== 0 && v !== TILE_WALL) {
+            ctx.strokeStyle = "rgba(15,23,42,0.45)";
+            ctx.strokeRect(x, y, TILE, TILE);
+          }
         }
       }
     }
 
     ctx.font = "bold 11px Inter, sans-serif";
-    ctx.fillStyle = "rgba(226,232,240,0.55)";
+    ctx.fillStyle = "rgba(226,232,240,0.7)";
     ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
     for (const label of ZONE_LABELS) {
       ctx.fillText(label.label, label.x * TILE - camX, label.y * TILE - camY);
     }
 
     for (const ent of map.entities) {
-      const x = ent.x - camX;
-      const y = ent.y - camY;
-      ctx.fillStyle = ent.color;
-      roundRect(ctx, x, y, ent.w, ent.h, 6);
-      ctx.fill();
-      if (ent.kind === "npc") {
-        ctx.fillStyle = "#0f172a";
-        ctx.beginPath();
-        ctx.arc(x + ent.w / 2, y + ent.h / 2, 6, 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.fillStyle = "#e2e8f0";
-      ctx.font = "9px Inter, sans-serif";
-      ctx.textAlign = "center";
-      ctx.fillText(ent.name, x + ent.w / 2, y + ent.h + 12);
+      drawEntity(ctx, ent, ent.x - camX, ent.y - camY, t);
     }
 
-    const px = p.x - camX;
-    const py = p.y - camY;
-    ctx.fillStyle = "#0ea5e9";
-    ctx.beginPath();
-    ctx.arc(px, py, 12, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = "#7dd3fc";
-    ctx.lineWidth = 3;
-    ctx.stroke();
-    ctx.fillStyle = "#fff";
-    ctx.beginPath();
-    ctx.arc(px, py, 4, 0, Math.PI * 2);
-    ctx.fill();
+    drawPlayer(ctx, p.x - camX, p.y - camY, this.facing);
   }
 }
 
@@ -220,16 +213,4 @@ function rectsOverlap(
   bh: number,
 ): boolean {
   return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
-}
-
-function roundRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number,
-): void {
-  ctx.beginPath();
-  ctx.roundRect(x, y, w, h, r);
 }

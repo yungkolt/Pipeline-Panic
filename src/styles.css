@@ -74,6 +74,14 @@ header.top {
 }
 .stat span { color: var(--muted); }
 .stat b { font-weight: 600; }
+#next-objective {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: inline-block;
+  vertical-align: bottom;
+}
 
 .main {
   flex: 1;

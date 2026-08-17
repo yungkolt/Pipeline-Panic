@@ -1,6 +1,7 @@
 import type { Domain, DomainStats, GameSave } from "../types";
 import { QUESTS } from "../content/quests";
 import { TILE } from "../content/map";
+import { refreshLocks } from "./quests";
 
 const DOMAINS: Domain[] = [
   "boards",
@@ -67,4 +68,24 @@ export function weakDomain(save: GameSave): Domain | undefined {
 
 export function defaultSpawn(): { x: number; y: number } {
   return { x: 27 * TILE + 16, y: 16 * TILE + 16 };
+}
+
+export function migrateSave(save: GameSave): GameSave {
+  const baseline = newGameSave(defaultSpawn());
+  for (const q of QUESTS) {
+    const existing = save.quests[q.id];
+    if (!existing) {
+      save.quests[q.id] = baseline.quests[q.id];
+      continue;
+    }
+    for (const step of q.steps) {
+      if (typeof existing.steps[step.id] !== "boolean") existing.steps[step.id] = false;
+    }
+    if (q.steps.every((s) => existing.steps[s.id]) && existing.status !== "completed") {
+      existing.status = "completed";
+    }
+  }
+  if (!save.player.skills.includes("help-basics")) save.player.skills.unshift("help-basics");
+  refreshLocks(save);
+  return save;
 }

@@ -6,7 +6,7 @@ import { applyCommand } from "../sim/incidentEngine";
 import { escapeHtml } from "../sim/commands";
 import { rankForXp, xpProgress } from "../progress/xp";
 import { SKILLS } from "../content/skills";
-import { visibleQuests, completeStep } from "../progress/quests";
+import { visibleQuests, completeStep, nextObjective } from "../progress/quests";
 import { BADGE_NAMES } from "../content/quests";
 import { newGameSave, defaultSpawn } from "../progress/save";
 import {
@@ -217,6 +217,7 @@ export function bindUI(store: Store, engine: GameEngine): void {
     $("active-incidents-count").textContent = live ? "1" : "0";
     $("active-incidents-count").style.color = live ? "#f87171" : "#34d399";
     $("bullet-count").textContent = String(s.player.resumeBullets.length);
+    $("next-objective").textContent = nextObjective(s);
 
     renderIncident();
     renderQuests();
@@ -256,27 +257,30 @@ export function bindUI(store: Store, engine: GameEngine): void {
     const root = $("quests-root");
     const s = store.get();
     const list = visibleQuests(s);
+    const head = `<p class="muted"><b>Next:</b> ${escapeHtml(nextObjective(s))}</p>`;
     if (!list.length) {
-      root.innerHTML = `<p class="muted">Talk to Riley.</p>`;
+      root.innerHTML = head;
       return;
     }
-    root.innerHTML = list
-      .map((q) => {
-        const st = s.quests[q.id];
-        const cls = st.status === "completed" ? "done" : st.status === "active" ? "active" : "";
-        const steps = q.steps
-          .map(
-            (step) =>
-              `<li class="${st.steps[step.id] ? "done" : ""}">${st.steps[step.id] ? "✓" : "○"} ${escapeHtml(step.text)}</li>`,
-          )
-          .join("");
-        return `<article class="quest ${cls}">
+    root.innerHTML =
+      head +
+      list
+        .map((q) => {
+          const st = s.quests[q.id];
+          const cls = st.status === "completed" ? "done" : st.status === "active" ? "active" : "";
+          const steps = q.steps
+            .map(
+              (step) =>
+                `<li class="${st.steps[step.id] ? "done" : ""}">${st.steps[step.id] ? "✓" : "○"} ${escapeHtml(step.text)}</li>`,
+            )
+            .join("");
+          return `<article class="quest ${cls}">
           <header><b>${escapeHtml(q.title)}</b><span class="badge">${st.status}${q.domain ? " · " + q.domain : ""}</span></header>
           <p class="muted">${escapeHtml(q.description)}</p>
           <ul class="steps">${steps}</ul>
         </article>`;
-      })
-      .join("");
+        })
+        .join("");
   }
 
   function renderSkills(): void {

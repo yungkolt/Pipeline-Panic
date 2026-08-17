@@ -1,5 +1,5 @@
 import type { GameSave } from "../types";
-import { isActive, isAvailable, isCompleted } from "../progress/quests";
+import { isActive, isAvailable, isCompleted, nextObjective } from "../progress/quests";
 
 export interface DialogueSession {
   speaker: string;
@@ -82,8 +82,9 @@ function riley(save: GameSave): DialogueSession {
     speaker: "Riley",
     role: "Reception",
     lines: [
-      "Wings are color-coded to AZ-400: Boards, Repos, Pipelines (the big one), Security, Observability.",
-      "Talk to the mentor in each wing. They will not be impressed by your Hotkeys folder.",
+      "Orientation's done. Walk the glowing cyan doorways — they are the only holes in the walls.",
+      "Northwest: Maya in Boards (green). Northeast: Glen in Repos (blue). South: Priya in the big purple Pipelines arena.",
+      `Next on the board: ${nextObjective(save)}`,
     ],
   };
 }

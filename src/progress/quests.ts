@@ -94,6 +94,18 @@ export function visibleQuests(save: GameSave) {
   });
 }
 
+export function nextObjective(save: GameSave): string {
+  for (const q of QUESTS) {
+    const st = save.quests[q.id];
+    if (!st || st.status === "completed" || st.status === "locked") continue;
+    const step = q.steps.find((s) => !st.steps[s.id]);
+    if (step) return `${q.title} — ${step.text}`;
+    return `Finish ${q.title}`;
+  }
+  if (!save.endlessUnlocked) return "Talk to Riley, then arm the red on-call pager.";
+  return "Endless On-Call is live. Pull any rack or the pager.";
+}
+
 export function campaignQuestStepForZone(
   save: GameSave,
   zone: string,
